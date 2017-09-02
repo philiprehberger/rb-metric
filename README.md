@@ -3,6 +3,7 @@
 [![Tests](https://github.com/philiprehberger/rb-metric/actions/workflows/ci.yml/badge.svg)](https://github.com/philiprehberger/rb-metric/actions/workflows/ci.yml)
 [![Gem Version](https://badge.fury.io/rb/philiprehberger-metric.svg)](https://rubygems.org/gems/philiprehberger-metric)
 [![License](https://img.shields.io/github/license/philiprehberger/rb-metric)](LICENSE)
+[![Sponsor](https://img.shields.io/badge/sponsor-GitHub%20Sponsors-ec6cb9)](https://github.com/sponsors/philiprehberger)
 
 In-process application metrics with counters, gauges, and histograms
 

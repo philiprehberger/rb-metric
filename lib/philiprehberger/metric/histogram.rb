@@ -19,7 +19,7 @@ module Philiprehberger
       # @param name [String] the metric name
       # @param help [String] the help description
       # @param buckets [Array<Numeric>] bucket boundaries (default: Prometheus defaults)
-      def initialize(name, help: "", buckets: DEFAULT_BUCKETS)
+      def initialize(name, help: '', buckets: DEFAULT_BUCKETS)
         @name = name
         @help = help
         @buckets = buckets.sort.freeze
@@ -87,7 +87,7 @@ module Philiprehberger
 
       # @return [String] the metric type name
       def type
-        "histogram"
+        'histogram'
       end
     end
   end

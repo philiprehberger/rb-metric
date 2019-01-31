@@ -21,7 +21,7 @@ module Philiprehberger
     # @param name [String] the metric name
     # @param help [String] the help description
     # @return [Counter]
-    def self.counter(name, help: "")
+    def self.counter(name, help: '')
       default_registry.counter(name, help: help)
     end
 
@@ -30,7 +30,7 @@ module Philiprehberger
     # @param name [String] the metric name
     # @param help [String] the help description
     # @return [Gauge]
-    def self.gauge(name, help: "")
+    def self.gauge(name, help: '')
       default_registry.gauge(name, help: help)
     end
 
@@ -40,7 +40,7 @@ module Philiprehberger
     # @param help [String] the help description
     # @param buckets [Array<Numeric>] bucket boundaries
     # @return [Histogram]
-    def self.histogram(name, help: "", buckets: Histogram::DEFAULT_BUCKETS)
+    def self.histogram(name, help: '', buckets: Histogram::DEFAULT_BUCKETS)
       default_registry.histogram(name, help: help, buckets: buckets)
     end
 
@@ -115,8 +115,8 @@ module Philiprehberger
   end
 end
 
-require_relative "metric/version"
-require_relative "metric/counter"
-require_relative "metric/gauge"
-require_relative "metric/histogram"
-require_relative "metric/registry"
+require_relative 'metric/version'
+require_relative 'metric/counter'
+require_relative 'metric/gauge'
+require_relative 'metric/histogram'
+require_relative 'metric/registry'

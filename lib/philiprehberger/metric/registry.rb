@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require "json"
+require 'json'
 
 module Philiprehberger
   module Metric
@@ -16,7 +16,7 @@ module Philiprehberger
       # @param name [String] the metric name
       # @param help [String] the help description
       # @return [Counter]
-      def counter(name, help: "")
+      def counter(name, help: '')
         @mutex.synchronize do
           raise Error, "Metric '#{name}' already registered" if @metrics.key?(name)
 
@@ -29,7 +29,7 @@ module Philiprehberger
       # @param name [String] the metric name
       # @param help [String] the help description
       # @return [Gauge]
-      def gauge(name, help: "")
+      def gauge(name, help: '')
         @mutex.synchronize do
           raise Error, "Metric '#{name}' already registered" if @metrics.key?(name)
 
@@ -43,7 +43,7 @@ module Philiprehberger
       # @param help [String] the help description
       # @param buckets [Array<Numeric>] bucket boundaries
       # @return [Histogram]
-      def histogram(name, help: "", buckets: Histogram::DEFAULT_BUCKETS)
+      def histogram(name, help: '', buckets: Histogram::DEFAULT_BUCKETS)
         @mutex.synchronize do
           raise Error, "Metric '#{name}' already registered" if @metrics.key?(name)
 
@@ -105,12 +105,12 @@ module Philiprehberger
       # @return [String]
       def to_prometheus
         lines = []
-        @mutex.synchronize { @metrics.dup }.each do |_name, metric|
+        @mutex.synchronize { @metrics.dup }.each_value do |metric|
           lines << "# HELP #{metric.name} #{metric.help}"
           lines << "# TYPE #{metric.name} #{metric.type}"
           format_prometheus_metric(lines, metric)
         end
-        lines.join("\n") + "\n"
+        "#{lines.join("\n")}\n"
       end
 
       # Export all metrics as JSON.
@@ -155,9 +155,9 @@ module Philiprehberger
           when Histogram
             metric.buckets.each do |bound|
               count = value[:buckets][bound] || 0
-              lines << "#{metric.name}_bucket{#{label_str}#{"," unless label_str.empty?}le=\"#{bound}\"} #{count}"
+              lines << "#{metric.name}_bucket{#{label_str}#{',' unless label_str.empty?}le=\"#{bound}\"} #{count}"
             end
-            lines << "#{metric.name}_bucket{#{label_str}#{"," unless label_str.empty?}le=\"+Inf\"} #{value[:count]}"
+            lines << "#{metric.name}_bucket{#{label_str}#{',' unless label_str.empty?}le=\"+Inf\"} #{value[:count]}"
             lines << "#{metric.name}_sum{#{label_str}} #{value[:sum]}"
             lines << "#{metric.name}_count{#{label_str}} #{value[:count]}"
           else
@@ -167,9 +167,9 @@ module Philiprehberger
       end
 
       def format_labels(labels)
-        return "" if labels.empty?
+        return '' if labels.empty?
 
-        labels.map { |k, v| "#{k}=\"#{v}\"" }.join(",")
+        labels.map { |k, v| "#{k}=\"#{v}\"" }.join(',')
       end
     end
   end

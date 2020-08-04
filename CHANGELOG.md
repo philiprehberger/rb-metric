@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-03-29
+
+### Added
+- Summary metric type with configurable quantile estimation
+- Timing helper (`registry.time`) to measure block execution duration as histogram observations
+- StatsD line protocol export (`to_statsd`) for counters, gauges, histograms, and summaries
+
 ## [0.1.2] - 2026-03-24
 
 ### Changed

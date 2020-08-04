@@ -8,9 +8,9 @@ Gem::Specification.new do |spec|
   spec.authors = ['Philip Rehberger']
   spec.email = ['me@philiprehberger.com']
 
-  spec.summary = 'In-process application metrics with counters, gauges, and histograms'
-  spec.description = 'A thread-safe in-process metrics library providing counters, gauges, and histograms ' \
-                     'with label support, snapshot export, and Prometheus and JSON output formats.'
+  spec.summary = 'In-process application metrics with counters, gauges, histograms, and summaries'
+  spec.description = 'A thread-safe in-process metrics library providing counters, gauges, histograms, and summaries ' \
+                     'with label support, timing helpers, and Prometheus, JSON, and StatsD export formats.'
   spec.homepage = 'https://github.com/philiprehberger/rb-metric'
   spec.license = 'MIT'
 

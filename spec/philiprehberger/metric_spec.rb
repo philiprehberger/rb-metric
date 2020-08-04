@@ -377,6 +377,150 @@ RSpec.describe Philiprehberger::Metric do
     end
   end
 
+  describe 'summary' do
+    it 'registers and observes values' do
+      described_class.summary('response_size', help: 'Response sizes')
+      described_class.observe('response_size', 100)
+      described_class.observe('response_size', 200)
+      described_class.observe('response_size', 300)
+
+      summary = described_class.get('response_size')
+      data = summary.get
+      expect(data[:count]).to eq(3)
+      expect(data[:sum]).to be_within(0.001).of(600.0)
+      expect(data).to have_key(0.5)
+      expect(data).to have_key(0.9)
+      expect(data).to have_key(0.99)
+    end
+
+    it 'computes quantiles correctly' do
+      described_class.summary('latency', help: 'Latency', quantiles: [0.5, 0.9, 0.99])
+      summary = described_class.get('latency')
+      (1..100).each { |i| summary.observe(i.to_f) }
+
+      data = summary.get
+      expect(data[:count]).to eq(100)
+      expect(data[:sum]).to be_within(0.001).of(5050.0)
+      expect(data[0.5]).to be_within(1).of(50.0)
+      expect(data[0.9]).to be_within(1).of(90.0)
+      expect(data[0.99]).to be_within(1).of(99.0)
+    end
+
+    it 'supports custom quantiles' do
+      described_class.summary('custom_q', help: 'Custom quantiles', quantiles: [0.25, 0.75])
+      summary = described_class.get('custom_q')
+      expect(summary.quantiles).to eq([0.25, 0.75])
+    end
+
+    it 'uses default quantiles when none specified' do
+      described_class.summary('default_q', help: 'Default quantiles')
+      summary = described_class.get('default_q')
+      expect(summary.quantiles).to eq(Philiprehberger::Metric::Summary::DEFAULT_QUANTILES)
+    end
+
+    it 'sorts custom quantiles' do
+      described_class.summary('sorted_q', help: 'Sorted', quantiles: [0.99, 0.5, 0.9])
+      summary = described_class.get('sorted_q')
+      expect(summary.quantiles).to eq([0.5, 0.9, 0.99])
+    end
+
+    it 'supports labels' do
+      described_class.summary('labeled_s', help: 'Labeled summary')
+      summary = described_class.get('labeled_s')
+      summary.observe(10, labels: { method: 'GET' })
+      summary.observe(20, labels: { method: 'POST' })
+
+      get_data = summary.get(labels: { method: 'GET' })
+      post_data = summary.get(labels: { method: 'POST' })
+
+      expect(get_data[:count]).to eq(1)
+      expect(post_data[:count]).to eq(1)
+    end
+
+    it 'returns empty data for unobserved labels' do
+      described_class.summary('empty_s', help: 'Empty summary')
+      summary = described_class.get('empty_s')
+      data = summary.get(labels: { path: '/unknown' })
+
+      expect(data[:count]).to eq(0)
+      expect(data[:sum]).to eq(0.0)
+      expect(data[0.5]).to eq(0.0)
+    end
+
+    it 'returns the correct type' do
+      described_class.summary('type_s', help: 'Type')
+      expect(described_class.get('type_s').type).to eq('summary')
+    end
+
+    it 'resets summary observations' do
+      described_class.summary('resettable_s', help: 'Resettable')
+      summary = described_class.get('resettable_s')
+      summary.observe(42)
+      summary.reset
+
+      expect(summary.get[:count]).to eq(0)
+      expect(summary.snapshot).to eq({})
+    end
+
+    it 'stores name and help attributes' do
+      described_class.summary('s_attrs', help: 'Summary attributes')
+      summary = described_class.get('s_attrs')
+      expect(summary.name).to eq('s_attrs')
+      expect(summary.help).to eq('Summary attributes')
+    end
+
+    it 'defaults help to empty string' do
+      described_class.summary('s_no_help')
+      summary = described_class.get('s_no_help')
+      expect(summary.help).to eq('')
+    end
+
+    it 'treats label order consistently' do
+      described_class.summary('s_ordered', help: 'Ordered')
+      summary = described_class.get('s_ordered')
+      summary.observe(5, labels: { z: '1', a: '2' })
+
+      data = summary.get(labels: { a: '2', z: '1' })
+      expect(data[:count]).to eq(1)
+    end
+
+    it 'returns a snapshot with multiple label sets' do
+      described_class.summary('multi_s_snap', help: 'Multi summary snap')
+      summary = described_class.get('multi_s_snap')
+      summary.observe(10, labels: { path: '/' })
+      summary.observe(20, labels: { path: '/api' })
+
+      snap = summary.snapshot
+      expect(snap.size).to eq(2)
+      expect(snap[{ path: '/' }][:count]).to eq(1)
+      expect(snap[{ path: '/api' }][:count]).to eq(1)
+    end
+
+    it 'handles a single observation' do
+      described_class.summary('single_obs', help: 'Single obs')
+      summary = described_class.get('single_obs')
+      summary.observe(42)
+
+      data = summary.get
+      expect(data[:count]).to eq(1)
+      expect(data[:sum]).to eq(42.0)
+      expect(data[0.5]).to eq(42.0)
+      expect(data[0.9]).to eq(42.0)
+      expect(data[0.99]).to eq(42.0)
+    end
+
+    it 'handles negative observed values' do
+      described_class.summary('neg_s', help: 'Negative')
+      summary = described_class.get('neg_s')
+      summary.observe(-5)
+      summary.observe(5)
+
+      data = summary.get
+      expect(data[:count]).to eq(2)
+      expect(data[:sum]).to eq(0.0)
+    end
+  end
+
   describe '.snapshot' do
     it 'returns a snapshot of metric values' do
       described_class.counter('visits', help: 'Page visits')
@@ -385,6 +529,62 @@ RSpec.describe Philiprehberger::Metric do
 
       snap = described_class.snapshot('visits')
       expect(snap.size).to eq(2)
+    end
+  end
+
+  describe 'timing helper' do
+    it 'measures block execution time' do
+      registry = Philiprehberger::Metric::Registry.new
+      registry.histogram('op_duration', help: 'Operation duration', buckets: [0.001, 0.01, 0.1, 1])
+
+      result = registry.time('op_duration') { 42 }
+
+      expect(result).to eq(42)
+      data = registry.get('op_duration').get
+      expect(data[:count]).to eq(1)
+      expect(data[:sum]).to be > 0
+    end
+
+    it 'records duration in seconds' do
+      registry = Philiprehberger::Metric::Registry.new
+      registry.histogram('sleep_dur', help: 'Sleep duration', buckets: [0.01, 0.1, 1])
+
+      registry.time('sleep_dur') { nil }
+
+      data = registry.get('sleep_dur').get
+      expect(data[:sum]).to be < 1.0
+    end
+
+    it 'supports labels' do
+      registry = Philiprehberger::Metric::Registry.new
+      registry.histogram('timed_op', help: 'Timed op', buckets: [1])
+
+      registry.time('timed_op', labels: { op: 'compute' }) { nil }
+
+      data = registry.get('timed_op').get(labels: { op: 'compute' })
+      expect(data[:count]).to eq(1)
+    end
+
+    it 'returns the block return value' do
+      registry = Philiprehberger::Metric::Registry.new
+      registry.histogram('ret_val', help: 'Return value', buckets: [1])
+
+      result = registry.time('ret_val') { 'hello' }
+      expect(result).to eq('hello')
+    end
+
+    it 'raises for unregistered metric' do
+      registry = Philiprehberger::Metric::Registry.new
+
+      expect { registry.time('missing') { nil } }.to raise_error(Philiprehberger::Metric::Error)
+    end
+
+    it 'works via module convenience method' do
+      described_class.histogram('mod_time', help: 'Module timing', buckets: [1])
+      result = described_class.time('mod_time') { 'done' }
+
+      expect(result).to eq('done')
+      expect(described_class.get('mod_time').get[:count]).to eq(1)
     end
   end
 
@@ -432,6 +632,28 @@ RSpec.describe Philiprehberger::Metric do
       output = described_class.to_prometheus
       expect(output).to end_with("\n")
     end
+
+    it 'exports summary in Prometheus format' do
+      described_class.summary('prom_s', help: 'Prometheus summary', quantiles: [0.5, 0.99])
+      described_class.observe('prom_s', 100)
+
+      output = described_class.to_prometheus
+      expect(output).to include('# TYPE prom_s summary')
+      expect(output).to include('prom_s{quantile="0.5"} 100.0')
+      expect(output).to include('prom_s{quantile="0.99"} 100.0')
+      expect(output).to include('prom_s_sum{} 100.0')
+      expect(output).to include('prom_s_count{} 1')
+    end
+
+    it 'exports summary with labels in Prometheus format' do
+      described_class.summary('prom_s_labels', help: 'Summary labels', quantiles: [0.5])
+      described_class.observe('prom_s_labels', 50, labels: { method: 'GET' })
+
+      output = described_class.to_prometheus
+      expect(output).to include('prom_s_labels{method="GET",quantile="0.5"} 50.0')
+      expect(output).to include('prom_s_labels_sum{method="GET"} 50.0')
+      expect(output).to include('prom_s_labels_count{method="GET"} 1')
+    end
   end
 
   describe '.to_json' do
@@ -459,6 +681,103 @@ RSpec.describe Philiprehberger::Metric do
 
       data = JSON.parse(described_class.to_json)
       expect(data.keys).to contain_exactly('c1', 'g1')
+    end
+
+    it 'exports summary in JSON' do
+      described_class.summary('json_s', help: 'JSON summary')
+      described_class.observe('json_s', 42)
+
+      data = JSON.parse(described_class.to_json)
+      expect(data['json_s']['type']).to eq('summary')
+    end
+  end
+
+  describe '.to_statsd' do
+    it 'exports counter in StatsD format' do
+      described_class.counter('statsd_c', help: 'StatsD counter')
+      described_class.increment('statsd_c')
+
+      output = described_class.to_statsd
+      expect(output).to include('statsd_c:1|c')
+    end
+
+    it 'exports counter with labels as tags' do
+      described_class.counter('statsd_c_labels', help: 'StatsD counter labels')
+      described_class.increment('statsd_c_labels', labels: { method: 'GET' })
+
+      output = described_class.to_statsd
+      expect(output).to include('statsd_c_labels,method=GET:1|c')
+    end
+
+    it 'exports gauge in StatsD format' do
+      described_class.gauge('statsd_g', help: 'StatsD gauge')
+      described_class.set('statsd_g', 42)
+
+      output = described_class.to_statsd
+      expect(output).to include('statsd_g:42|g')
+    end
+
+    it 'exports gauge with labels' do
+      described_class.gauge('statsd_g_labels', help: 'StatsD gauge labels')
+      described_class.set('statsd_g_labels', 99, labels: { host: 'web1' })
+
+      output = described_class.to_statsd
+      expect(output).to include('statsd_g_labels,host=web1:99|g')
+    end
+
+    it 'exports histogram in StatsD format' do
+      described_class.histogram('statsd_h', help: 'StatsD histogram', buckets: [1, 5])
+      described_class.observe('statsd_h', 3.5)
+
+      output = described_class.to_statsd
+      expect(output).to include('statsd_h:3.5|ms')
+      expect(output).to include('statsd_h.count:1|c')
+    end
+
+    it 'exports histogram with labels' do
+      described_class.histogram('statsd_h_labels', help: 'StatsD hist labels', buckets: [10])
+      described_class.observe('statsd_h_labels', 5, labels: { path: '/' })
+
+      output = described_class.to_statsd
+      expect(output).to include('statsd_h_labels,path=/:5.0|ms')
+      expect(output).to include('statsd_h_labels,path=/.count:1|c')
+    end
+
+    it 'exports summary in StatsD format' do
+      described_class.summary('statsd_s', help: 'StatsD summary', quantiles: [0.5, 0.99])
+      described_class.observe('statsd_s', 100)
+
+      output = described_class.to_statsd
+      expect(output).to include('statsd_s.p50:100.0|g')
+      expect(output).to include('statsd_s.p99:100.0|g')
+      expect(output).to include('statsd_s.count:1|c')
+      expect(output).to include('statsd_s.sum:100.0|g')
+    end
+
+    it 'exports summary with labels in StatsD format' do
+      described_class.summary('statsd_s_labels', help: 'StatsD summary labels', quantiles: [0.5])
+      described_class.observe('statsd_s_labels', 50, labels: { env: 'prod' })
+
+      output = described_class.to_statsd
+      expect(output).to include('statsd_s_labels,env=prod.p50:50.0|g')
+      expect(output).to include('statsd_s_labels,env=prod.count:1|c')
+      expect(output).to include('statsd_s_labels,env=prod.sum:50.0|g')
+    end
+
+    it 'exports empty registry as empty string' do
+      registry = Philiprehberger::Metric::Registry.new
+      expect(registry.to_statsd).to eq('')
+    end
+
+    it 'exports multiple metrics' do
+      described_class.counter('sd_a', help: 'A')
+      described_class.gauge('sd_b', help: 'B')
+      described_class.increment('sd_a')
+      described_class.set('sd_b', 10)
+
+      output = described_class.to_statsd
+      expect(output).to include('sd_a:1|c')
+      expect(output).to include('sd_b:10|g')
     end
   end
 
@@ -513,6 +832,11 @@ RSpec.describe Philiprehberger::Metric do
     it 'raises on duplicate histogram registration' do
       described_class.histogram('dup_h', help: 'Duplicate histogram')
       expect { described_class.histogram('dup_h', help: 'Duplicate histogram') }.to raise_error(Philiprehberger::Metric::Error)
+    end
+
+    it 'raises on duplicate summary registration' do
+      described_class.summary('dup_s', help: 'Duplicate summary')
+      expect { described_class.summary('dup_s', help: 'Duplicate summary') }.to raise_error(Philiprehberger::Metric::Error)
     end
 
     it 'raises when registering different metric types with the same name' do
@@ -575,6 +899,12 @@ RSpec.describe Philiprehberger::Metric do
       expect(registry.get('direct_h').get[:count]).to eq(1)
     end
 
+    it 'registers and retrieves a summary directly' do
+      summary = registry.summary('direct_s', help: 'Direct summary')
+      summary.observe(10)
+      expect(registry.get('direct_s').get[:count]).to eq(1)
+    end
+
     it 'increments a counter through the registry' do
       registry.counter('reg_inc', help: 'Registry increment')
       registry.increment('reg_inc', labels: { env: 'test' })
@@ -591,6 +921,12 @@ RSpec.describe Philiprehberger::Metric do
       registry.histogram('reg_obs', help: 'Registry observe', buckets: [10])
       registry.observe('reg_obs', 5, labels: { path: '/' })
       expect(registry.get('reg_obs').get(labels: { path: '/' })[:count]).to eq(1)
+    end
+
+    it 'observes a summary through the registry' do
+      registry.summary('reg_obs_s', help: 'Registry observe summary')
+      registry.observe('reg_obs_s', 42)
+      expect(registry.get('reg_obs_s').get[:count]).to eq(1)
     end
 
     it 'returns a snapshot through the registry' do
@@ -618,6 +954,10 @@ RSpec.describe Philiprehberger::Metric do
     it 'exports an empty registry to JSON' do
       data = JSON.parse(registry.to_json)
       expect(data).to eq({})
+    end
+
+    it 'exports an empty registry to StatsD format' do
+      expect(registry.to_statsd).to eq('')
     end
   end
 
@@ -852,6 +1192,17 @@ RSpec.describe Philiprehberger::Metric do
       counter = described_class.counter('conv_c', help: 'Convenience counter')
       expect(counter).to be_a(Philiprehberger::Metric::Counter)
     end
+
+    it 'registers a summary via module method and returns Summary instance' do
+      summary = described_class.summary('conv_s', help: 'Convenience summary')
+      expect(summary).to be_a(Philiprehberger::Metric::Summary)
+      expect(summary.help).to eq('Convenience summary')
+    end
+
+    it 'registers a summary with custom quantiles via module method' do
+      summary = described_class.summary('conv_s_q', help: 'Custom Q', quantiles: [0.25, 0.75])
+      expect(summary.quantiles).to eq([0.25, 0.75])
+    end
   end
 
   describe 'thread safety' do
@@ -895,6 +1246,22 @@ RSpec.describe Philiprehberger::Metric do
       threads.each(&:join)
 
       expect(histogram.get[:count]).to eq(1000)
+    end
+
+    it 'handles concurrent summary observations' do
+      described_class.summary('concurrent_s', help: 'Concurrent summary')
+      summary = described_class.get('concurrent_s')
+
+      threads = Array.new(10) do
+        Thread.new do
+          100.times { summary.observe(1.0) }
+        end
+      end
+      threads.each(&:join)
+
+      data = summary.get
+      expect(data[:count]).to eq(1000)
+      expect(data[:sum]).to be_within(0.001).of(1000.0)
     end
   end
 end

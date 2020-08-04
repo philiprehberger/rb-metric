@@ -51,6 +51,20 @@ module Philiprehberger
         end
       end
 
+      # Register a summary metric.
+      #
+      # @param name [String] the metric name
+      # @param help [String] the help description
+      # @param quantiles [Array<Float>] quantiles to compute
+      # @return [Summary]
+      def summary(name, help: '', quantiles: Summary::DEFAULT_QUANTILES)
+        @mutex.synchronize do
+          raise Error, "Metric '#{name}' already registered" if @metrics.key?(name)
+
+          @metrics[name] = Summary.new(name, help: help, quantiles: quantiles)
+        end
+      end
+
       # Increment a counter metric.
       #
       # @param name [String] the metric name
@@ -72,7 +86,7 @@ module Philiprehberger
         metric.set(value, labels: labels)
       end
 
-      # Observe a histogram value.
+      # Observe a histogram or summary value.
       #
       # @param name [String] the metric name
       # @param value [Numeric] the observed value
@@ -81,6 +95,20 @@ module Philiprehberger
       def observe(name, value, labels: {})
         metric = fetch(name)
         metric.observe(value, labels: labels)
+      end
+
+      # Measure block execution time and record as a histogram observation.
+      #
+      # @param name [String] the histogram metric name (must already be registered)
+      # @param labels [Hash] optional labels
+      # @return [Object] the block's return value
+      def time(name, labels: {})
+        metric = fetch(name)
+        start = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        result = yield
+        duration = Process.clock_gettime(Process::CLOCK_MONOTONIC) - start
+        metric.observe(duration, labels: labels)
+        result
       end
 
       # Get a registered metric by name.
@@ -128,6 +156,17 @@ module Philiprehberger
         JSON.generate(data)
       end
 
+      # Export all metrics in StatsD line protocol format.
+      #
+      # @return [String]
+      def to_statsd
+        lines = []
+        @mutex.synchronize { @metrics.dup }.each_value do |metric|
+          format_statsd_metric(lines, metric)
+        end
+        lines.join("\n")
+      end
+
       # Reset all metrics.
       #
       # @return [void]
@@ -160,8 +199,36 @@ module Philiprehberger
             lines << "#{metric.name}_bucket{#{label_str}#{',' unless label_str.empty?}le=\"+Inf\"} #{value[:count]}"
             lines << "#{metric.name}_sum{#{label_str}} #{value[:sum]}"
             lines << "#{metric.name}_count{#{label_str}} #{value[:count]}"
+          when Summary
+            metric.quantiles.each do |q|
+              lines << "#{metric.name}{#{label_str}#{',' unless label_str.empty?}quantile=\"#{q}\"} #{value[q]}"
+            end
+            lines << "#{metric.name}_sum{#{label_str}} #{value[:sum]}"
+            lines << "#{metric.name}_count{#{label_str}} #{value[:count]}"
           else
             lines << "#{metric.name}{#{label_str}} #{value}"
+          end
+        end
+      end
+
+      def format_statsd_metric(lines, metric)
+        metric.snapshot.each do |labels, value|
+          tags = format_statsd_tags(labels)
+          name_with_tags = tags.empty? ? metric.name : "#{metric.name},#{tags}"
+          case metric
+          when Counter
+            lines << "#{name_with_tags}:#{value}|c"
+          when Gauge
+            lines << "#{name_with_tags}:#{value}|g"
+          when Histogram
+            lines << "#{name_with_tags}:#{value[:sum]}|ms"
+            lines << "#{name_with_tags}.count:#{value[:count]}|c"
+          when Summary
+            metric.quantiles.each do |q|
+              lines << "#{name_with_tags}.p#{(q * 100).to_i}:#{value[q]}|g"
+            end
+            lines << "#{name_with_tags}.count:#{value[:count]}|c"
+            lines << "#{name_with_tags}.sum:#{value[:sum]}|g"
           end
         end
       end
@@ -170,6 +237,12 @@ module Philiprehberger
         return '' if labels.empty?
 
         labels.map { |k, v| "#{k}=\"#{v}\"" }.join(',')
+      end
+
+      def format_statsd_tags(labels)
+        return '' if labels.empty?
+
+        labels.map { |k, v| "#{k}=#{v}" }.join(',')
       end
     end
   end

@@ -2,10 +2,14 @@
 
 [![Tests](https://github.com/philiprehberger/rb-metric/actions/workflows/ci.yml/badge.svg)](https://github.com/philiprehberger/rb-metric/actions/workflows/ci.yml)
 [![Gem Version](https://badge.fury.io/rb/philiprehberger-metric.svg)](https://rubygems.org/gems/philiprehberger-metric)
+[![GitHub release](https://img.shields.io/github/v/release/philiprehberger/rb-metric)](https://github.com/philiprehberger/rb-metric/releases)
+[![Last updated](https://img.shields.io/github/last-commit/philiprehberger/rb-metric)](https://github.com/philiprehberger/rb-metric/commits/main)
 [![License](https://img.shields.io/github/license/philiprehberger/rb-metric)](LICENSE)
+[![Bug Reports](https://img.shields.io/github/issues/philiprehberger/rb-metric/bug)](https://github.com/philiprehberger/rb-metric/issues?q=is%3Aissue+is%3Aopen+label%3Abug)
+[![Feature Requests](https://img.shields.io/github/issues/philiprehberger/rb-metric/enhancement)](https://github.com/philiprehberger/rb-metric/issues?q=is%3Aissue+is%3Aopen+label%3Aenhancement)
 [![Sponsor](https://img.shields.io/badge/sponsor-GitHub%20Sponsors-ec6cb9)](https://github.com/sponsors/philiprehberger)
 
-In-process application metrics with counters, gauges, and histograms
+In-process application metrics with counters, gauges, histograms, and summaries
 
 ## Requirements
 
@@ -65,6 +69,28 @@ Philiprehberger::Metric.observe("request_duration", 0.342)
 data = Philiprehberger::Metric.snapshot("request_duration")
 ```
 
+### Summaries
+
+```ruby
+Philiprehberger::Metric.summary("response_size", help: "Response sizes", quantiles: [0.5, 0.9, 0.99])
+Philiprehberger::Metric.observe("response_size", 1024)
+Philiprehberger::Metric.observe("response_size", 2048)
+
+summary = Philiprehberger::Metric.get("response_size")
+summary.get # => { count: 2, sum: 3072.0, 0.5 => 1024.0, 0.9 => 2048.0, 0.99 => 2048.0 }
+```
+
+### Timing Helper
+
+```ruby
+registry = Philiprehberger::Metric::Registry.new
+registry.histogram("operation_duration", help: "Operation duration")
+
+result = registry.time("operation_duration", labels: { op: "compute" }) do
+  expensive_operation
+end
+```
+
 ### Prometheus Export
 
 ```ruby
@@ -79,6 +105,13 @@ json = Philiprehberger::Metric.to_json
 # => '{"http_requests_total":{"type":"counter","help":"Total HTTP requests","values":{...}}}'
 ```
 
+### StatsD Export
+
+```ruby
+output = Philiprehberger::Metric.to_statsd
+# => "http_requests_total,method=GET:1|c"
+```
+
 ## API
 
 ### `Metric` (Module)
@@ -88,13 +121,16 @@ json = Philiprehberger::Metric.to_json
 | `.counter(name, help:)` | Register a counter metric |
 | `.gauge(name, help:)` | Register a gauge metric |
 | `.histogram(name, help:, buckets:)` | Register a histogram metric |
+| `.summary(name, help:, quantiles:)` | Register a summary metric |
 | `.increment(name, labels:)` | Increment a counter |
 | `.set(name, value, labels:)` | Set a gauge value |
-| `.observe(name, value, labels:)` | Observe a histogram value |
+| `.observe(name, value, labels:)` | Observe a histogram or summary value |
+| `.time(name, labels:) { block }` | Measure block duration as histogram observation |
 | `.get(name)` | Get a registered metric by name |
 | `.snapshot(name)` | Get a snapshot of a metric's values |
 | `.to_prometheus` | Export all metrics in Prometheus text format |
 | `.to_json` | Export all metrics as JSON |
+| `.to_statsd` | Export all metrics in StatsD line protocol |
 | `.reset` | Reset and clear all registered metrics |
 
 ### `Counter`
@@ -120,6 +156,13 @@ json = Philiprehberger::Metric.to_json
 | `#observe(value, labels:)` | Observe a value |
 | `#get(labels:)` | Get bucket counts, sum, and count |
 
+### `Summary`
+
+| Method | Description |
+|--------|-------------|
+| `#observe(value, labels:)` | Observe a value |
+| `#get(labels:)` | Get quantile values, sum, and count |
+
 ## Development
 
 ```bash
@@ -128,6 +171,13 @@ bundle exec rspec
 bundle exec rubocop
 ```
 
+## Support
+
+If you find this package useful, consider giving it a star on GitHub — it helps motivate continued maintenance and development.
+
+[![LinkedIn](https://img.shields.io/badge/Philip%20Rehberger-LinkedIn-0A66C2?logo=linkedin)](https://www.linkedin.com/in/philiprehberger)
+[![More packages](https://img.shields.io/badge/more-open%20source%20packages-blue)](https://philiprehberger.com/open-source-packages)
+
 ## License
 
-MIT
+[MIT](LICENSE)

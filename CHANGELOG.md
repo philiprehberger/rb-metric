@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-04-09
+
+### Added
+- `Registry#names`, `Registry#registered?`, and `Registry#unregister` for metric introspection and removal
+- Module-level `.names`, `.registered?`, and `.unregister` delegators on `Philiprehberger::Metric`
+- `Histogram.linear_buckets` and `Histogram.exponential_buckets` helpers for building bucket boundaries
+
 ## [0.2.1] - 2026-03-31
 
 ### Changed

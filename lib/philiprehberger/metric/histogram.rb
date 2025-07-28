@@ -7,6 +7,34 @@ module Philiprehberger
       # Default histogram buckets matching Prometheus defaults.
       DEFAULT_BUCKETS = [0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10].freeze
 
+      # Build a linear sequence of bucket boundaries.
+      #
+      # @param start [Numeric] first bucket upper bound
+      # @param width [Numeric] distance between buckets
+      # @param count [Integer] number of buckets to generate
+      # @return [Array<Numeric>]
+      # @raise [Error] if count is not positive
+      def self.linear_buckets(start:, width:, count:)
+        raise Error, 'count must be positive' if count <= 0
+
+        Array.new(count) { |i| start + (width * i) }
+      end
+
+      # Build an exponential sequence of bucket boundaries.
+      #
+      # @param start [Numeric] first bucket upper bound (must be > 0)
+      # @param factor [Numeric] multiplier between successive buckets (must be > 1)
+      # @param count [Integer] number of buckets to generate
+      # @return [Array<Numeric>]
+      # @raise [Error] if arguments are invalid
+      def self.exponential_buckets(start:, factor:, count:)
+        raise Error, 'count must be positive' if count <= 0
+        raise Error, 'start must be positive' if start <= 0
+        raise Error, 'factor must be greater than 1' if factor <= 1
+
+        Array.new(count) { |i| start * (factor**i) }
+      end
+
       # @return [String] the metric name
       attr_reader :name
 

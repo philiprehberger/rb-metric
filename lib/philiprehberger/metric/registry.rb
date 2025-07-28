@@ -167,6 +167,29 @@ module Philiprehberger
         lines.join("\n")
       end
 
+      # List the names of all registered metrics.
+      #
+      # @return [Array<String>]
+      def names
+        @mutex.synchronize { @metrics.keys.dup }
+      end
+
+      # Check whether a metric is registered.
+      #
+      # @param name [String] the metric name
+      # @return [Boolean]
+      def registered?(name)
+        @mutex.synchronize { @metrics.key?(name) }
+      end
+
+      # Unregister a metric by name.
+      #
+      # @param name [String] the metric name
+      # @return [Counter, Gauge, Histogram, Summary, nil] the removed metric, or nil if not registered
+      def unregister(name)
+        @mutex.synchronize { @metrics.delete(name) }
+      end
+
       # Reset all metrics.
       #
       # @return [void]

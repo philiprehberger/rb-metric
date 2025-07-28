@@ -86,6 +86,27 @@ result = registry.time("operation_duration", labels: { op: "compute" }) do
 end
 ```
 
+### Bucket Helpers
+
+```ruby
+linear = Philiprehberger::Metric::Histogram.linear_buckets(start: 0.1, width: 0.1, count: 5)
+# => [0.1, 0.2, 0.3, 0.4, 0.5]
+
+exp = Philiprehberger::Metric::Histogram.exponential_buckets(start: 1, factor: 2, count: 4)
+# => [1, 2, 4, 8]
+
+Philiprehberger::Metric.histogram("payload_bytes", help: "Payload size", buckets: exp)
+```
+
+### Introspection
+
+```ruby
+Philiprehberger::Metric.counter("requests", help: "Requests")
+Philiprehberger::Metric.registered?("requests") # => true
+Philiprehberger::Metric.names                    # => ["requests"]
+Philiprehberger::Metric.unregister("requests")
+```
+
 ### Prometheus Export
 
 ```ruby
@@ -126,6 +147,9 @@ output = Philiprehberger::Metric.to_statsd
 | `.to_prometheus` | Export all metrics in Prometheus text format |
 | `.to_json` | Export all metrics as JSON |
 | `.to_statsd` | Export all metrics in StatsD line protocol |
+| `.names` | List names of all registered metrics |
+| `.registered?(name)` | Check whether a metric is registered |
+| `.unregister(name)` | Remove a metric from the default registry |
 | `.reset` | Reset and clear all registered metrics |
 
 ### `Counter`
@@ -148,6 +172,8 @@ output = Philiprehberger::Metric.to_statsd
 
 | Method | Description |
 |--------|-------------|
+| `.linear_buckets(start:, width:, count:)` | Build a linear sequence of bucket boundaries |
+| `.exponential_buckets(start:, factor:, count:)` | Build an exponential sequence of bucket boundaries |
 | `#observe(value, labels:)` | Observe a value |
 | `#get(labels:)` | Get bucket counts, sum, and count |
 

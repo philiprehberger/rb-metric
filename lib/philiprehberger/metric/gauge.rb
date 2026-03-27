@@ -12,7 +12,7 @@ module Philiprehberger
 
       # @param name [String] the metric name
       # @param help [String] the help description
-      def initialize(name, help: "")
+      def initialize(name, help: '')
         @name = name
         @help = help
         @mutex = Mutex.new
@@ -75,7 +75,7 @@ module Philiprehberger
 
       # @return [String] the metric type name
       def type
-        "gauge"
+        'gauge'
       end
     end
   end

@@ -44,6 +44,16 @@ module Philiprehberger
       default_registry.histogram(name, help: help, buckets: buckets)
     end
 
+    # Register a summary metric on the default registry.
+    #
+    # @param name [String] the metric name
+    # @param help [String] the help description
+    # @param quantiles [Array<Float>] quantiles to compute
+    # @return [Summary]
+    def self.summary(name, help: '', quantiles: Summary::DEFAULT_QUANTILES)
+      default_registry.summary(name, help: help, quantiles: quantiles)
+    end
+
     # Increment a counter on the default registry.
     #
     # @param name [String] the metric name
@@ -89,6 +99,15 @@ module Philiprehberger
       default_registry.snapshot(name)
     end
 
+    # Measure block execution time and record as a histogram observation.
+    #
+    # @param name [String] the histogram metric name
+    # @param labels [Hash] optional labels
+    # @return [Object] the block's return value
+    def self.time(name, labels: {}, &block)
+      default_registry.time(name, labels: labels, &block)
+    end
+
     # Export all metrics in Prometheus text exposition format.
     #
     # @return [String]
@@ -101,6 +120,13 @@ module Philiprehberger
     # @return [String]
     def self.to_json(*args)
       default_registry.to_json(*args)
+    end
+
+    # Export all metrics in StatsD line protocol format.
+    #
+    # @return [String]
+    def self.to_statsd
+      default_registry.to_statsd
     end
 
     # Reset the default registry.
@@ -119,4 +145,5 @@ require_relative 'metric/version'
 require_relative 'metric/counter'
 require_relative 'metric/gauge'
 require_relative 'metric/histogram'
+require_relative 'metric/summary'
 require_relative 'metric/registry'

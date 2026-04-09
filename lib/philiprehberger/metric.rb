@@ -129,6 +129,29 @@ module Philiprehberger
       default_registry.to_statsd
     end
 
+    # List the names of all metrics on the default registry.
+    #
+    # @return [Array<String>]
+    def self.names
+      default_registry.names
+    end
+
+    # Check whether a metric is registered on the default registry.
+    #
+    # @param name [String] the metric name
+    # @return [Boolean]
+    def self.registered?(name)
+      default_registry.registered?(name)
+    end
+
+    # Unregister a metric from the default registry.
+    #
+    # @param name [String] the metric name
+    # @return [Counter, Gauge, Histogram, Summary, nil]
+    def self.unregister(name)
+      default_registry.unregister(name)
+    end
+
     # Reset the default registry.
     #
     # @return [void]

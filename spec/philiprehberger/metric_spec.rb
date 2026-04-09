@@ -1264,4 +1264,64 @@ RSpec.describe Philiprehberger::Metric do
       expect(data[:sum]).to be_within(0.001).of(1000.0)
     end
   end
+
+  describe 'registry introspection' do
+    it 'lists registered metric names' do
+      described_class.counter('a', help: '')
+      described_class.gauge('b', help: '')
+      expect(described_class.names).to contain_exactly('a', 'b')
+    end
+
+    it 'reports whether a metric is registered' do
+      described_class.counter('exists', help: '')
+      expect(described_class.registered?('exists')).to be true
+      expect(described_class.registered?('missing')).to be false
+    end
+
+    it 'unregisters a metric by name' do
+      described_class.counter('temp', help: '')
+      removed = described_class.unregister('temp')
+      expect(removed).not_to be_nil
+      expect(described_class.registered?('temp')).to be false
+      expect(described_class.unregister('temp')).to be_nil
+    end
+
+    it 'allows re-registering after unregister' do
+      described_class.counter('reuse', help: '')
+      described_class.unregister('reuse')
+      expect { described_class.counter('reuse', help: '') }.not_to raise_error
+    end
+  end
+
+  describe 'Histogram bucket helpers' do
+    it 'builds linear buckets' do
+      expect(Philiprehberger::Metric::Histogram.linear_buckets(start: 0.1, width: 0.1, count: 5))
+        .to eq([0.1, 0.2, 0.30000000000000004, 0.4, 0.5])
+    end
+
+    it 'builds exponential buckets' do
+      expect(Philiprehberger::Metric::Histogram.exponential_buckets(start: 1, factor: 2, count: 4))
+        .to eq([1, 2, 4, 8])
+    end
+
+    it 'rejects invalid linear bucket count' do
+      expect { Philiprehberger::Metric::Histogram.linear_buckets(start: 0, width: 1, count: 0) }
+        .to raise_error(Philiprehberger::Metric::Error)
+    end
+
+    it 'rejects invalid exponential bucket arguments' do
+      expect { Philiprehberger::Metric::Histogram.exponential_buckets(start: 0, factor: 2, count: 3) }
+        .to raise_error(Philiprehberger::Metric::Error)
+      expect { Philiprehberger::Metric::Histogram.exponential_buckets(start: 1, factor: 1, count: 3) }
+        .to raise_error(Philiprehberger::Metric::Error)
+    end
+
+    it 'works as buckets argument to a histogram' do
+      buckets = Philiprehberger::Metric::Histogram.exponential_buckets(start: 1, factor: 2, count: 4)
+      described_class.histogram('h', help: '', buckets: buckets)
+      described_class.observe('h', 3)
+      data = described_class.snapshot('h')[{}]
+      expect(data[:count]).to eq(1)
+    end
+  end
 end

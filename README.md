@@ -53,6 +53,8 @@ Philiprehberger::Metric.set("temperature", 72.5)
 gauge = Philiprehberger::Metric.get("temperature")
 gauge.increment
 gauge.decrement
+gauge.add(2.5)   # relative adjustment; negative values subtract
+gauge.add(-1)
 ```
 
 ### Histograms
@@ -166,6 +168,7 @@ output = Philiprehberger::Metric.to_statsd
 | `#set(value, labels:)` | Set the gauge value |
 | `#increment(amount:, labels:)` | Increment the gauge |
 | `#decrement(amount:, labels:)` | Decrement the gauge |
+| `#add(value, labels:)` | Atomically add a value to the gauge (negative subtracts) |
 | `#get(labels:)` | Get the current value |
 
 ### `Histogram`

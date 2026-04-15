@@ -50,6 +50,18 @@ module Philiprehberger
         increment(amount: -amount, labels: labels)
       end
 
+      # Atomically add a value to the gauge. Negative values subtract.
+      #
+      # @param value [Numeric] the amount to add (may be negative)
+      # @param labels [Hash] optional labels
+      # @return [void]
+      def add(value, labels: {})
+        key = labels.sort.to_h
+        @mutex.synchronize do
+          @values[key] = (@values[key] || 0) + value
+        end
+      end
+
       # Get the current value for a set of labels.
       #
       # @param labels [Hash] the label set

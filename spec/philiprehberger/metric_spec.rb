@@ -1042,6 +1042,46 @@ RSpec.describe Philiprehberger::Metric do
       gauge = described_class.get('g_no_help')
       expect(gauge.help).to eq('')
     end
+
+    it 'adds a positive value to the gauge' do
+      described_class.gauge('g_add_pos', help: 'Add positive')
+      gauge = described_class.get('g_add_pos')
+      gauge.set(10)
+      gauge.add(5)
+      expect(gauge.get).to eq(15)
+    end
+
+    it 'adds a negative value to the gauge' do
+      described_class.gauge('g_add_neg', help: 'Add negative')
+      gauge = described_class.get('g_add_neg')
+      gauge.set(10)
+      gauge.add(-3)
+      expect(gauge.get).to eq(7)
+    end
+
+    it 'adds from zero when gauge has never been set' do
+      described_class.gauge('g_add_zero', help: 'Add from zero')
+      gauge = described_class.get('g_add_zero')
+      gauge.add(4)
+      expect(gauge.get).to eq(4)
+    end
+
+    it 'accumulates across chained adds' do
+      described_class.gauge('g_add_chain', help: 'Chained adds')
+      gauge = described_class.get('g_add_chain')
+      gauge.add(1)
+      gauge.add(2.5)
+      gauge.add(-0.5)
+      expect(gauge.get).to be_within(0.00001).of(3.0)
+    end
+
+    it 'treats a zero add as a noop' do
+      described_class.gauge('g_add_noop', help: 'Add noop')
+      gauge = described_class.get('g_add_noop')
+      gauge.set(42)
+      gauge.add(0)
+      expect(gauge.get).to eq(42)
+    end
   end
 
   describe 'histogram edge cases' do

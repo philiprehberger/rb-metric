@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-04-15
+
+### Added
+- `Gauge#add(value, labels:)` for atomic relative adjustment of a gauge (negative values subtract), complementing the absolute `#set` and the default-amount `#increment` / `#decrement`
+
 ## [0.3.0] - 2026-04-09
 
 ### Added

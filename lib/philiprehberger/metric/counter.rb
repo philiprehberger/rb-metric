@@ -21,10 +21,16 @@ module Philiprehberger
 
       # Increment the counter.
       #
-      # @param amount [Numeric] the amount to increment by (default: 1)
+      # Counters are monotonic by definition, so negative +amount+ values are rejected
+      # and raise {Error}. Use a {Gauge} if you need a value that can decrease.
+      #
+      # @param amount [Numeric] the amount to increment by (default: 1); must be non-negative
       # @param labels [Hash] optional labels for dimensional metrics
       # @return [void]
+      # @raise [Error] if +amount+ is negative
       def increment(amount: 1, labels: {})
+        raise Error, 'Counter cannot decrease' if amount.negative?
+
         key = labels.sort.to_h
         @mutex.synchronize do
           @values[key] = (@values[key] || 0) + amount

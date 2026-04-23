@@ -88,6 +88,21 @@ result = registry.time("operation_duration", labels: { op: "compute" }) do
 end
 ```
 
+### Timer
+
+For flows where a block is awkward (for example, when start and stop live in different methods or callbacks), use `Timer` for a scoped manual-stop alternative.
+
+```ruby
+Philiprehberger::Metric.histogram("job_duration", help: "Job duration")
+
+timer = Philiprehberger::Metric::Timer.new("job_duration")
+do_work
+timer.stop(labels: { job: "import" })
+# => elapsed seconds (Float); stop is idempotent — subsequent calls return the cached value
+```
+
+Pass a specific registry with `Timer.new("job_duration", registry: my_registry)`. `#elapsed` reads the current elapsed seconds without stopping, and `#reset` discards a running timer (after reset, `#stop` raises).
+
 ### Bucket Helpers
 
 ```ruby
@@ -151,14 +166,16 @@ output = Philiprehberger::Metric.to_statsd
 | `.to_statsd` | Export all metrics in StatsD line protocol |
 | `.names` | List names of all registered metrics |
 | `.registered?(name)` | Check whether a metric is registered |
-| `.unregister(name)` | Remove a metric from the default registry |
+| `.unregister(name, strict:)` | Remove a metric; `strict: true` raises if the metric is missing |
 | `.reset` | Reset and clear all registered metrics |
 
 ### `Counter`
 
+Counters are monotonic: `#increment` rejects negative amounts and raises `Philiprehberger::Metric::Error`. Use a `Gauge` for values that can decrease.
+
 | Method | Description |
 |--------|-------------|
-| `#increment(amount:, labels:)` | Increment the counter |
+| `#increment(amount:, labels:)` | Increment the counter (raises on negative `amount`) |
 | `#get(labels:)` | Get the current value |
 
 ### `Gauge`
@@ -186,6 +203,15 @@ output = Philiprehberger::Metric.to_statsd
 |--------|-------------|
 | `#observe(value, labels:)` | Observe a value |
 | `#get(labels:)` | Get quantile values, sum, and count |
+
+### `Timer`
+
+| Method | Description |
+|--------|-------------|
+| `.new(histogram_name, registry:)` | Start a new timer bound to a registered histogram |
+| `#stop(labels:)` | Record the elapsed seconds as a histogram observation; idempotent (cached return) |
+| `#elapsed` | Return the current elapsed seconds without stopping |
+| `#reset` | Discard the running timer; subsequent `#stop` raises `Error` |
 
 ## Development
 

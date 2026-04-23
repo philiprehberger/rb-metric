@@ -184,10 +184,20 @@ module Philiprehberger
 
       # Unregister a metric by name.
       #
+      # By default this is a silent no-op when +name+ is not registered. Pass
+      # +strict: true+ to raise {Error} instead — useful when the caller expects
+      # the metric to exist and wants to fail loudly if it does not.
+      #
       # @param name [String] the metric name
-      # @return [Counter, Gauge, Histogram, Summary, nil] the removed metric, or nil if not registered
-      def unregister(name)
-        @mutex.synchronize { @metrics.delete(name) }
+      # @param strict [Boolean] when +true+, raise {Error} if the metric is not registered (default +false+)
+      # @return [Counter, Gauge, Histogram, Summary, nil] the removed metric, or +nil+ if not registered and +strict+ is +false+
+      # @raise [Error] if +strict+ is +true+ and the metric is not registered
+      def unregister(name, strict: false)
+        @mutex.synchronize do
+          raise Error, "No metric registered with name: #{name}" if strict && !@metrics.key?(name)
+
+          @metrics.delete(name)
+        end
       end
 
       # Reset all metrics.

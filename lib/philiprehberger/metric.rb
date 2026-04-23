@@ -147,9 +147,10 @@ module Philiprehberger
     # Unregister a metric from the default registry.
     #
     # @param name [String] the metric name
+    # @param strict [Boolean] when +true+, raise {Error} if the metric is not registered (default +false+)
     # @return [Counter, Gauge, Histogram, Summary, nil]
-    def self.unregister(name)
-      default_registry.unregister(name)
+    def self.unregister(name, strict: false)
+      default_registry.unregister(name, strict: strict)
     end
 
     # Reset the default registry.
@@ -170,3 +171,4 @@ require_relative 'metric/gauge'
 require_relative 'metric/histogram'
 require_relative 'metric/summary'
 require_relative 'metric/registry'
+require_relative 'metric/timer'

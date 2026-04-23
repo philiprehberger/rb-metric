@@ -970,12 +970,19 @@ RSpec.describe Philiprehberger::Metric do
       expect(counter.get).to be_within(0.001).of(2.0)
     end
 
-    it 'handles negative increment amount (no guard)' do
+    it 'raises when incrementing by a negative amount' do
       described_class.counter('neg_inc', help: 'Negative increment')
       counter = described_class.get('neg_inc')
       counter.increment(amount: 10)
-      counter.increment(amount: -3)
-      expect(counter.get).to eq(7)
+
+      expect { counter.increment(amount: -3) }.to raise_error(Philiprehberger::Metric::Error, /cannot decrease/)
+      expect(counter.get).to eq(10)
+    end
+
+    it 'raises when incrementing by a negative amount via the module' do
+      described_class.counter('neg_inc_mod', help: 'Negative increment module')
+      expect { described_class.get('neg_inc_mod').increment(amount: -1) }
+        .to raise_error(Philiprehberger::Metric::Error)
     end
 
     it 'handles very large increment values' do
@@ -1330,6 +1337,31 @@ RSpec.describe Philiprehberger::Metric do
       described_class.counter('reuse', help: '')
       described_class.unregister('reuse')
       expect { described_class.counter('reuse', help: '') }.not_to raise_error
+    end
+
+    it 'unregister with default strict: false silently returns nil for missing metric' do
+      registry = Philiprehberger::Metric::Registry.new
+      expect(registry.unregister('missing')).to be_nil
+    end
+
+    it 'unregister with strict: true raises when metric is missing' do
+      registry = Philiprehberger::Metric::Registry.new
+      expect { registry.unregister('missing', strict: true) }
+        .to raise_error(Philiprehberger::Metric::Error, /No metric registered with name: missing/)
+    end
+
+    it 'unregister with strict: true removes an existing metric' do
+      registry = Philiprehberger::Metric::Registry.new
+      registry.counter('existing', help: '')
+      removed = registry.unregister('existing', strict: true)
+
+      expect(removed).not_to be_nil
+      expect(registry.registered?('existing')).to be false
+    end
+
+    it 'module-level unregister passes strict through' do
+      expect { described_class.unregister('no_such_metric', strict: true) }
+        .to raise_error(Philiprehberger::Metric::Error)
     end
   end
 

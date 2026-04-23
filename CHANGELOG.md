@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-04-23
+
+### Added
+- `Philiprehberger::Metric::Timer` — scoped timer with manual `#stop(labels:)` for timing flows where block syntax is awkward.
+- `Registry#unregister(name, strict: false)` — `strict: true` raises when the metric is missing.
+- YARD documentation on new symbols.
+
+### Changed
+- `Counter#increment` now raises `Philiprehberger::Metric::Error` on negative amounts (counters are monotonic).
+
 ## [0.4.0] - 2026-04-15
 
 ### Added
